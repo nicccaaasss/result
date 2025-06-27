@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Voting Results</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600&family=Roboto&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(-45deg, #ffffff, #2575fc, #ff3b3f, #ffffff);
+      background-size: 400% 400%;
+      animation: gradientBG 12s ease-in-out infinite;
+      min-height: 100vh;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    @keyframes gradientBG {
+      0% {background-position: 0% 50%;}
+      50% {background-position: 100% 50%;}
+      100% {background-position: 0% 50%;}
+    }
+
+    h1 {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 2.5rem;
+      color: #000;
+      margin-bottom: 2rem;
+    }
+
+    .layout {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      max-width: 1100px;
+      gap: 2rem;
+    }
+
+    .left-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .right-column {
+      flex: 2;
+      background: rgba(255,255,255,0.96);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+
+    .post-btn {
+      background: #fff;
+      border: 2px solid #e3f2fd;
+      border-radius: 1rem;
+      padding: 1rem 1.2rem;
+      font-size: 1rem;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 600;
+      color: #2575fc;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .post-btn:hover,
+    .post-btn.active {
+      background: linear-gradient(90deg, #2575fc, #ff3b3f);
+      color: white;
+      border-color: #2575fc;
+      transform: scale(1.04);
+    }
+
+    .result-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.8rem;
+      color: #000;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .vote-entry {
+      background: #f1f1f1;
+      padding: 0.9rem 1.2rem;
+      margin-bottom: 0.8rem;
+      border-radius: 0.8rem;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.1rem;
+      color: #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    canvas {
+      max-width: 100%;
+      margin-top: 2rem;
+    }
+
+    .no-votes {
+      text-align: center;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.1rem;
+      color: #e53935;
+    }
+
+    @media (max-width: 768px) {
+      .layout {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
+    #welcome-screen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(120deg, #2575fc, #ff3b3f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeOut 2s ease-out 1.5s forwards;
+}
+
+#welcome-screen h1 {
+  font-family: 'Montserrat', sans-serif;
+  color: #fff;
+  font-size: 2.7rem;
+  text-align: center;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div id="welcome-screen">
+  <h1>Welcome to Results</h1>
+</div>
+  <h1>Voting Results</h1>
+  <div class="layout">
+    <div class="left-column" id="post-buttons"></div>
+    <div class="right-column">
+      <div id="result-section"></div>
+      <canvas id="pieChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const { createClient } = supabase;
+    const supabaseClient = createClient(
+      'https://fnxdrfciohfzaeabmymc.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZueGRyZmNpb2hmemFlYWJteW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NjI2NTEsImV4cCI6MjA2NjQzODY1MX0._DItO2rYqGw6d0FRfveNp4zHdLoPu-KVgv_TSMGyJEw'
+    );
+
+    const allPosts = [
+      "head_boy", "head_girl", "vice_head_boy", "vice_head_girl",
+      "cca_leader", "sports_leader",
+      "samurai_team_leader", "samurai_vice_team_leader",
+      "spartans_team_leader", "spartans_vice_team_leader",
+      "knights_team_leader", "knights_vice_team_leader",
+      "vikings_team_leader", "vikings_vice_team_leader"
+    ];
+
+    const postTitles = {
+      head_boy: "Head Boy",
+      head_girl: "Head Girl",
+      vice_head_boy: "Vice Head Boy",
+      vice_head_girl: "Vice Head Girl",
+      cca_leader: "CCA Leader",
+      sports_leader: "Sports Leader",
+      samurai_team_leader: "Samurai Team Leader",
+      samurai_vice_team_leader: "Samurai Vice Team Leader",
+      spartans_team_leader: "Spartans Team Leader",
+      spartans_vice_team_leader: "Spartans Vice Team Leader",
+      knights_team_leader: "Knights Team Leader",
+      knights_vice_team_leader: "Knights Vice Team Leader",
+      vikings_team_leader: "Vikings Team Leader",
+      vikings_vice_team_leader: "Vikings Vice Team Leader"
+    };
+
+    const postButtons = document.getElementById("post-buttons");
+    const resultSection = document.getElementById("result-section");
+    const pieCanvas = document.getElementById("pieChart");
+    let pieChart = null;
+
+    allPosts.forEach(post => {
+      const btn = document.createElement("button");
+      btn.className = "post-btn";
+      btn.innerText = postTitles[post];
+      btn.onclick = () => showResultsFor(post, btn);
+      postButtons.appendChild(btn);
+    });
+
+    async function showResultsFor(postKey, clickedBtn) {
+      // Highlight active button
+      document.querySelectorAll(".post-btn").forEach(btn => btn.classList.remove("active"));
+      clickedBtn.classList.add("active");
+
+      resultSection.innerHTML = `<div class="result-title">${postTitles[postKey]}</div>`;
+
+      const { data, error } = await supabaseClient
+        .from("votes")
+        .select(postKey);
+
+      if (error || !data) {
+        resultSection.innerHTML += `<p class="no-votes">Error loading votes.</p>`;
+        return;
+      }
+
+      const countMap = {};
+      data.forEach(row => {
+        const name = row[postKey];
+        if (name) countMap[name] = (countMap[name] || 0) + 1;
+      });
+
+      const sorted = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
+
+      if (sorted.length === 0) {
+        resultSection.innerHTML += `<p class="no-votes">No votes yet.</p>`;
+      } else {
+        sorted.forEach(([name, count]) => {
+          const div = document.createElement("div");
+          div.className = "vote-entry";
+          div.innerHTML = `<span>${name}</span><span>${count} vote${count > 1 ? "s" : ""}</span>`;
+          resultSection.appendChild(div);
+        });
+      }
+
+      // Pie Chart
+      if (pieChart) pieChart.destroy();
+
+      const labels = sorted.map(([name]) => name);
+      const values = sorted.map(([, count]) => count);
+      const colors = labels.map((_, i) =>
+        ["#2575fc", "#ff3b3f", "#43a047", "#ffc107", "#8e24aa", "#ff9800"][i % 6]
+      );
+
+      pieChart = new Chart(pieCanvas.getContext("2d"), {
+        type: "pie",
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderColor: "#fff",
+            borderWidth: 2
+          }]
+        },
+        options: {
+          plugins: {
+            legend: {
+              position: "right",
+              labels: {
+                font: {
+                  family: "Montserrat",
+                  size: 14,
+                  weight: "bold"
+                },
+                color: "#333"
+              }
+            }
+          }
+        }
+      });
+    }
+    setTimeout(() => {
+  const splash = document.getElementById("welcome-screen");
+  if (splash) splash.remove();
+}, 3000); // 1.5s delay + 1.5s fade out = 3s total
+
+  </script>
+</body>
+</html>
